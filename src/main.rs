@@ -14,7 +14,6 @@ extern crate libc;
 extern crate x11;
 
 // std module imports
-use std::env;
 use std::io;
 use std::process;
 use std::ptr;
