@@ -205,12 +205,12 @@ fn main() {
         let batts = get_batteries();
         let times = get_times();
 
+        let status = cstring(&format!("T:{} L:{} B:{} {}", temps, avgs, batts, times));
         unsafe {
             XStoreName(display, XDefaultRootWindow(display), status.as_ptr());
             XSync(display, false as i32);
         }
 
         thread::sleep(time::Duration::from_secs(60));
-        let status = cstring(&format!("T:{} L:{} B:{} {}", temps, avgs, batts, times));
     }
 }
