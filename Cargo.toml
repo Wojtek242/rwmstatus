@@ -1,0 +1,10 @@
+[package]
+name = "rwmstatus"
+version = "0.1.0"
+authors = ["Wojciech Kozlowski <wk@wojciechkozlowski.eu>"]
+
+links = "X11"
+build = "build.rs"
+
+[dependencies]
+x11 = "2"
