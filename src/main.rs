@@ -42,6 +42,31 @@ fn read_file(base: &str, filename: &str) -> io::Result<String> {
     Ok(contents)
 }
 
+const HWMON_PATH: &'static str = "/sys/devices/virtual/hwmon";
+const HWMONS: [&'static str; 3] = ["hwmon0", "hwmon2", "hwmon4"];
+
+/// Return temperature reads from all monitors.
+fn get_temperatures() -> String {
+    let mut temp_strs: Vec<String> = vec![];
+
+    for hwmon in HWMONS.iter() {
+        temp_strs.push(get_temp(&[HWMON_PATH, hwmon].join("/")));
+    }
+
+    temp_strs.join("|")
+}
+
+/// Return temperature read from the provided monitor.
+fn get_temp(hwmon: &str) -> String {
+    match read_file(hwmon, "temp1_input") {
+        Ok(contents) => match contents.trim().parse::<f64>() {
+            Ok(val) => format!("{:02.0}°C", val / 1000.0),
+            Err(_) => format!(""),
+        },
+        Err(_) => format!(""),
+    }
+}
+
 /// Return the three load average values.
 fn get_load_avgs() -> String {
     let mut avgs: [libc::c_double; 3] = [0.0; 3];
@@ -66,15 +91,15 @@ fn get_batteries() -> String {
     let mut batt_strs: Vec<String> = vec![];
 
     for batt in BATTS.iter() {
-        batt_strs.push(get_battery(&[BATT_PATH, batt].join("/")));
+        batt_strs.push(get_batt(&[BATT_PATH, batt].join("/")));
     }
 
     batt_strs.join("|")
 }
 
 /// Return battery status for the battery at the provided path.
-fn get_battery(batt_base: &str) -> String {
-    match read_file(&batt_base, "present") {
+fn get_batt(batt: &str) -> String {
+    match read_file(&batt, "present") {
         Ok(contents) => {
             if !contents.starts_with('1') {
                 return format!("not present");
@@ -83,31 +108,37 @@ fn get_battery(batt_base: &str) -> String {
         Err(_) => return format!(""),
     };
 
-    let co = match read_file(&batt_base, "charge_full_design") {
+    let co = match read_file(&batt, "charge_full_design") {
         Ok(contents) => contents,
         Err(_) => {
-            match read_file(&batt_base, "energy_full_design") {
+            match read_file(&batt, "energy_full_design") {
                 Ok(contents) => contents,
                 Err(_) => return format!(""),
             }
         }
     };
 
-    let desired_capacity: u64 = co.trim().parse().expect(&format!("Not a number: {}", co));
+    let desired_capacity: u64 = match co.trim().parse() {
+        Ok(val) => val,
+        Err(_) => return format!("invalid"),
+    };
 
-    let co = match read_file(&batt_base, "charge_now") {
+    let co = match read_file(&batt, "charge_now") {
         Ok(contents) => contents,
         Err(_) => {
-            match read_file(&batt_base, "energy_now") {
+            match read_file(&batt, "energy_now") {
                 Ok(contents) => contents,
                 Err(_) => return format!(""),
             }
         }
     };
 
-    let remaining_capacity: u64 = co.trim().parse().expect(&format!("Invalid number: {}", co));
+    let remaining_capacity: u64 = match co.trim().parse() {
+        Ok(val) => val,
+        Err(_) => return format!("invalid"),
+    };
 
-    let status: char = match read_file(&batt_base, "status") {
+    let status: char = match read_file(&batt, "status") {
         Ok(contents) => {
             match &contents.trim()[..] {
                 "Full" => 'F',
@@ -139,15 +170,16 @@ fn main() {
     }
 
     loop {
+        let temps = get_temperatures();
         let avgs = get_load_avgs();
         let batts = get_batteries();
 
-        let status = cstring(&format!("L:{} B:{}", avgs, batts));
         unsafe {
             XStoreName(display, XDefaultRootWindow(display), status.as_ptr());
             XSync(display, false as i32);
         }
 
         thread::sleep(time::Duration::from_secs(60));
+        let status = cstring(&format!("T:{} L:{} B:{}", temps, avgs, batts));
     }
 }
