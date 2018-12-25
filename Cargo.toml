@@ -8,3 +8,4 @@ build = "build.rs"
 
 [dependencies]
 x11 = "2"
+libc = "0.2"

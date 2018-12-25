@@ -12,6 +12,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "rwmstatus"
 version = "0.1.0"
 dependencies = [
+ "libc 0.2.45 (registry+https://github.com/rust-lang/crates.io-index)",
  "x11 2.18.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
