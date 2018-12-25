@@ -42,7 +42,10 @@ fn read_file(base: &str, filename: &str) -> io::Result<String> {
     Ok(contents)
 }
 
+/// Path to monitors.
 const HWMON_PATH: &'static str = "/sys/devices/virtual/hwmon";
+
+/// Array of monitors to use.
 const HWMONS: [&'static str; 3] = ["hwmon0", "hwmon2", "hwmon4"];
 
 /// Return temperature reads from all monitors.
@@ -83,7 +86,10 @@ fn get_load_avgs() -> String {
     format!("{:.2} {:.2} {:.2}", avgs[0], avgs[1], avgs[2])
 }
 
+/// Path to power supply information.
 const BATT_PATH: &'static str = "/sys/class/power_supply";
+
+/// Batteries to display.
 const BATTS: [&'static str; 2] = ["BAT0", "BAT1"];
 
 /// Return battery status for all batteries.
