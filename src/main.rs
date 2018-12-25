@@ -27,6 +27,10 @@ use std::fs::File;
 use x11::xlib::Display;
 use x11::xlib::{XDefaultRootWindow, XOpenDisplay, XStoreName, XSync};
 
+// Internal module imports
+mod config;
+use config::*;
+
 /// Convert a Rust string to a CString and panic if it fails.
 #[inline]
 fn cstring(string: &str) -> CString {
@@ -41,12 +45,6 @@ fn read_file(base: &str, filename: &str) -> io::Result<String> {
     file.read_to_string(&mut contents)?;
     Ok(contents)
 }
-
-/// Path to monitors.
-const HWMON_PATH: &'static str = "/sys/devices/virtual/hwmon";
-
-/// Array of monitors to use.
-const HWMONS: [&'static str; 3] = ["hwmon0", "hwmon2", "hwmon4"];
 
 /// Return temperature reads from all monitors.
 fn get_temperatures() -> String {
@@ -85,12 +83,6 @@ fn get_load_avgs() -> String {
 
     format!("{:.2} {:.2} {:.2}", avgs[0], avgs[1], avgs[2])
 }
-
-/// Path to power supply information.
-const BATT_PATH: &'static str = "/sys/class/power_supply";
-
-/// Batteries to display.
-const BATTS: [&'static str; 2] = ["BAT0", "BAT1"];
 
 /// Return battery status for all batteries.
 fn get_batteries() -> String {
