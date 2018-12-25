@@ -8,24 +8,30 @@
 //! [suckless.org](https://suckless.org/) programs to Rust, a programming
 //! language that sucks less.
 
-extern crate x11;
+extern crate chrono;
+extern crate chrono_tz;
 extern crate libc;
+extern crate x11;
 
 // std module imports
+use std::env;
 use std::io;
-use std::io::prelude::*;
 use std::process;
 use std::ptr;
 use std::thread;
 use std::time;
 
 // std type imports
+use std::io::prelude::*;
 use std::ffi::CString;
 use std::fs::File;
 
 // x11 imports
 use x11::xlib::Display;
 use x11::xlib::{XDefaultRootWindow, XOpenDisplay, XStoreName, XSync};
+
+// Other external imports
+use chrono::prelude::*;
 
 // Internal module imports
 mod config;
@@ -60,10 +66,12 @@ fn get_temperatures() -> String {
 /// Return temperature read from the provided monitor.
 fn get_temp(hwmon: &str) -> String {
     match read_file(hwmon, "temp1_input") {
-        Ok(contents) => match contents.trim().parse::<f64>() {
-            Ok(val) => format!("{:02.0}°C", val / 1000.0),
-            Err(_) => format!(""),
-        },
+        Ok(contents) => {
+            match contents.trim().parse::<f64>() {
+                Ok(val) => format!("{:02.0}°C", val / 1000.0),
+                Err(_) => format!(""),
+            }
+        }
         Err(_) => format!(""),
     }
 }
@@ -155,6 +163,30 @@ fn get_batt(batt: &str) -> String {
     )
 }
 
+/// Return times for all configured time zones.
+fn get_times() -> String {
+    let mut tz_strs: Vec<String> = vec![];
+
+    for tz in TZS.iter() {
+        tz_strs.push(format!("{}:{}", tz.0, get_tz_time(tz.1, "%H:%M")));
+    }
+
+    tz_strs.push(get_tz_time(TZ_DEF, "KW %W %a %d %b %H:%M %Z %Y"));
+
+    tz_strs.join(" ")
+}
+
+/// Get the time for the provided time zone.
+fn get_tz_time(tz_name: &str, fmt: &str) -> String {
+    match tz_name.parse::<chrono_tz::Tz>() {
+        Ok(tz) => {
+            let utc = Utc::now().naive_utc();
+            format!("{}", tz.from_utc_datetime(&utc).format(fmt))
+        }
+        Err(_) => return format!(""),
+    }
+}
+
 fn main() {
     let display: *mut Display;
 
@@ -171,6 +203,7 @@ fn main() {
         let temps = get_temperatures();
         let avgs = get_load_avgs();
         let batts = get_batteries();
+        let times = get_times();
 
         unsafe {
             XStoreName(display, XDefaultRootWindow(display), status.as_ptr());
@@ -178,6 +211,6 @@ fn main() {
         }
 
         thread::sleep(time::Duration::from_secs(60));
-        let status = cstring(&format!("T:{} L:{} B:{}", temps, avgs, batts));
+        let status = cstring(&format!("T:{} L:{} B:{} {}", temps, avgs, batts, times));
     }
 }

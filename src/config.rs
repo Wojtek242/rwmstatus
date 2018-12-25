@@ -11,3 +11,9 @@ pub const BATT_PATH: &'static str = "/sys/class/power_supply";
 
 /// Batteries to display.
 pub const BATTS: [&'static str; 2] = ["BAT0", "BAT1"];
+
+/// Default Time zone.
+pub const TZ_DEF: &str = "Europe/Berlin";
+
+/// Additional time zones to display (short name, full name).
+pub const TZS: [(char, &'static str); 2] = [('A', "America/Buenos_Aires"), ('U', "UTC")];
