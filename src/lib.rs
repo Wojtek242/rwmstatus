@@ -152,7 +152,7 @@ pub fn get_times() -> String {
         tz_strs.push(format!("{}:{}", tz.0, get_tz_time(tz.1, "%H:%M")));
     }
 
-    tz_strs.push(get_tz_time(TZ_DEF, "KW %W %a %d %b %H:%M %Z %Y"));
+    tz_strs.push(get_local_time("KW %W %a %d %b %H:%M %Z %Y"));
 
     tz_strs.join(" ")
 }
@@ -166,4 +166,9 @@ fn get_tz_time(tz_name: &str, fmt: &str) -> String {
         }
         Err(_) => return format!(""),
     }
+}
+
+/// Get the local time.
+fn get_local_time(fmt: &str) -> String {
+    format!("{}", Local::now().format(fmt))
 }
