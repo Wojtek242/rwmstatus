@@ -9,7 +9,7 @@ repository = "https://github.com/Wojtek242/rwmstatus"
 homepage = "https://github.com/Wojtek242/rwmstatus"
 documentation = "https://docs.rs/rwmstatus"
 description = """
-Library for status monitor displays..
+Library for status monitor displays.
 """
 
 links = "X11"
