@@ -144,17 +144,32 @@ pub fn get_local_time(fmt: &str) -> String {
 pub struct RwmStatus {
     hw_mons: Vec<PathBuf>,
     batts: Vec<PathBuf>,
-    tzs: Vec<(char, &'static str)>,
+    tzs: Vec<Tz>,
+}
+
+/// ## Tz
+///
+/// Holds the label and name of a time zone.
+struct Tz {
+    label: char,
+    name: String,
 }
 
 impl RwmStatus {
     /// Build a new RwmStatus object.  This function collects all the monitor
     /// and battery paths for later use.
-    pub fn new(hw_mon_path: &str, batt_path: &str, tzs: &[(char, &'static str)]) -> RwmStatus {
+    pub fn new(hw_mon_path: &str, batt_path: &str, tzs: &[(char, &str)]) -> RwmStatus {
         RwmStatus {
             hw_mons: RwmStatus::get_paths(hw_mon_path, "hwmon"),
             batts: RwmStatus::get_paths(batt_path, "BAT"),
-            tzs: tzs.to_vec(),
+            tzs: tzs.iter()
+                .map(|tz| {
+                    Tz {
+                        label: tz.0,
+                        name: String::from(tz.1),
+                    }
+                })
+                .collect(),
         }
     }
 
@@ -219,7 +234,7 @@ impl RwmStatus {
         let mut tz_strs: Vec<String> = vec![];
 
         for tz in self.tzs.iter() {
-            tz_strs.push(format!("{}:{}", tz.0, get_tz_time(tz.1, "%H:%M")));
+            tz_strs.push(format!("{}:{}", tz.label, get_tz_time(&tz.name, "%H:%M")));
         }
 
         tz_strs.push(get_local_time("KW %W %a %d %b %H:%M %Z %Y"));
