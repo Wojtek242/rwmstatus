@@ -8,10 +8,11 @@
 //! [suckless.org](https://suckless.org/) programs to Rust, a programming
 //! language that sucks less.
 
-// Lib imports
+// Lib import
 extern crate rwmstatus;
 use rwmstatus::*;
 
+// External crates
 extern crate x11;
 
 // std module imports
@@ -27,6 +28,9 @@ use std::ffi::CString;
 use x11::xlib::Display;
 use x11::xlib::{XDefaultRootWindow, XOpenDisplay, XStoreName, XSync};
 
+// Internal module imports
+mod config;
+
 fn main() {
     let display: *mut Display;
 
@@ -39,14 +43,32 @@ fn main() {
         process::exit(1);
     }
 
-    loop {
-        let temps = get_temperatures();
-        let avgs = get_load_avgs();
-        let batts = get_batteries();
-        let times = get_times();
+    let rwmstatus = RwmStatus::new(config::HW_MON_PATH, config::BATT_PATH, &config::TZS[..]);
 
-        let status = CString::new(format!("T:{} L:{} B:{} {}", temps, avgs, batts, times))
-            .expect("Failed to create status CString.");
+    loop {
+        let mut stats = vec![];
+
+        let temps = rwmstatus.get_temperatures();
+        if !temps.is_empty() {
+            stats.push(format!("T:{}", temps));
+        }
+
+        let avgs = rwmstatus.get_load_avgs();
+        if !avgs.is_empty() {
+            stats.push(format!("L:{}", avgs));
+        }
+
+        let batts = rwmstatus.get_batteries();
+        if !batts.is_empty() {
+            stats.push(format!("B:{}", batts));
+        }
+
+        let times = rwmstatus.get_times();
+        if !times.is_empty() {
+            stats.push(times);
+        }
+
+        let status = CString::new(stats.join(" ")).expect("Failed to create status CString.");
         unsafe {
             XStoreName(display, XDefaultRootWindow(display), status.as_ptr());
             XSync(display, false as i32);

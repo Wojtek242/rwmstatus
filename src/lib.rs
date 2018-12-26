@@ -6,6 +6,7 @@
 //! [suckless.org](https://suckless.org/) programs to Rust, a programming
 //! language that sucks less.
 
+// External crates
 extern crate chrono;
 extern crate chrono_tz;
 extern crate libc;
@@ -16,36 +17,23 @@ use std::io;
 // std type imports
 use std::io::prelude::*;
 use std::fs::File;
+use std::path::Path;
+use std::path::PathBuf;
 
 // Other external imports
 use chrono::prelude::*;
 
-// Internal module imports
-mod config;
-use config::*;
-
 /// Read the contents of the file base/filename and return as a String.
 #[inline]
-fn read_file(base: &str, filename: &str) -> io::Result<String> {
-    let mut file = File::open([base, filename].join("/"))?;
+fn read_file(base: &PathBuf, filename: &str) -> io::Result<String> {
+    let mut file = File::open(base.join(filename))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     Ok(contents)
 }
 
-/// Return temperature reads from all monitors.
-pub fn get_temperatures() -> String {
-    let mut temp_strs: Vec<String> = vec![];
-
-    for hwmon in HWMONS.iter() {
-        temp_strs.push(get_temp(&[HWMON_PATH, hwmon].join("/")));
-    }
-
-    temp_strs.join("|")
-}
-
 /// Return temperature read from the provided monitor.
-fn get_temp(hwmon: &str) -> String {
+pub fn get_temp(hwmon: &PathBuf) -> String {
     match read_file(hwmon, "temp1_input") {
         Ok(contents) => {
             match contents.trim().parse::<f64>() {
@@ -73,19 +61,8 @@ pub fn get_load_avgs() -> String {
     format!("{:.2} {:.2} {:.2}", avgs[0], avgs[1], avgs[2])
 }
 
-/// Return battery status for all batteries.
-pub fn get_batteries() -> String {
-    let mut batt_strs: Vec<String> = vec![];
-
-    for batt in BATTS.iter() {
-        batt_strs.push(get_batt(&[BATT_PATH, batt].join("/")));
-    }
-
-    batt_strs.join("|")
-}
-
 /// Return battery status for the battery at the provided path.
-fn get_batt(batt: &str) -> String {
+pub fn get_batt(batt: &PathBuf) -> String {
     match read_file(&batt, "present") {
         Ok(contents) => {
             if !contents.starts_with('1') {
@@ -144,21 +121,8 @@ fn get_batt(batt: &str) -> String {
     )
 }
 
-/// Return times for all configured time zones.
-pub fn get_times() -> String {
-    let mut tz_strs: Vec<String> = vec![];
-
-    for tz in TZS.iter() {
-        tz_strs.push(format!("{}:{}", tz.0, get_tz_time(tz.1, "%H:%M")));
-    }
-
-    tz_strs.push(get_local_time("KW %W %a %d %b %H:%M %Z %Y"));
-
-    tz_strs.join(" ")
-}
-
 /// Get the time for the provided time zone.
-fn get_tz_time(tz_name: &str, fmt: &str) -> String {
+pub fn get_tz_time(tz_name: &str, fmt: &str) -> String {
     match tz_name.parse::<chrono_tz::Tz>() {
         Ok(tz) => {
             let utc = Utc::now().naive_utc();
@@ -169,6 +133,97 @@ fn get_tz_time(tz_name: &str, fmt: &str) -> String {
 }
 
 /// Get the local time.
-fn get_local_time(fmt: &str) -> String {
+pub fn get_local_time(fmt: &str) -> String {
     format!("{}", Local::now().format(fmt))
+}
+
+/// ## RwmStatus
+///
+/// This struct collects device dependent paths and user settings.  It also
+/// provides convenience methods to aggregate readouts.
+pub struct RwmStatus {
+    hw_mons: Vec<PathBuf>,
+    batts: Vec<PathBuf>,
+    tzs: Vec<(char, &'static str)>,
+}
+
+impl RwmStatus {
+    /// Build a new RwmStatus object.  This function collects all the monitor
+    /// and battery paths for later use.
+    pub fn new(hw_mon_path: &str, batt_path: &str, tzs: &[(char, &'static str)]) -> RwmStatus {
+        RwmStatus {
+            hw_mons: RwmStatus::get_paths(hw_mon_path, "hwmon"),
+            batts: RwmStatus::get_paths(batt_path, "BAT"),
+            tzs: tzs.to_vec(),
+        }
+    }
+
+    /// Collect all the paths of the form base_path/prefix*
+    fn get_paths(base_path: &str, prefix: &str) -> Vec<PathBuf> {
+        let dir = match Path::new(base_path).read_dir() {
+            Ok(iter) => iter,
+            Err(_) => return vec![],
+        };
+
+        let dir_filtered = dir.filter(|path_result| match path_result {
+            &Ok(ref path) => {
+                match path.file_name().to_str() {
+                    Some(entry) => entry.starts_with(prefix),
+                    None => false,
+                }
+            }
+            &Err(_) => false,
+        });
+
+        let mut paths: Vec<PathBuf> = dir_filtered
+            .map(|path_result| match path_result {
+                Ok(path) => path.path(),
+                Err(_) => panic!("Unexpected file path"),
+            })
+            .collect();
+
+        paths.sort_unstable();
+        paths
+    }
+
+    /// Return temperature reads from all monitors.
+    pub fn get_temperatures(&self) -> String {
+        let mut temp_strs: Vec<String> = vec![];
+
+        for hwmon in self.hw_mons.iter() {
+            temp_strs.push(get_temp(&hwmon));
+        }
+
+        temp_strs.join("|")
+    }
+
+    /// Return the three load average values.
+    #[inline]
+    pub fn get_load_avgs(&self) -> String {
+        get_load_avgs()
+    }
+
+    /// Return battery status for all batteries.
+    pub fn get_batteries(&self) -> String {
+        let mut batt_strs: Vec<String> = vec![];
+
+        for batt in self.batts.iter() {
+            batt_strs.push(get_batt(&batt));
+        }
+
+        batt_strs.join("|")
+    }
+
+    /// Return times for all configured time zones.
+    pub fn get_times(&self) -> String {
+        let mut tz_strs: Vec<String> = vec![];
+
+        for tz in self.tzs.iter() {
+            tz_strs.push(format!("{}:{}", tz.0, get_tz_time(tz.1, "%H:%M")));
+        }
+
+        tz_strs.push(get_local_time("KW %W %a %d %b %H:%M %Z %Y"));
+
+        tz_strs.join(" ")
+    }
 }
