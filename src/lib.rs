@@ -1,10 +1,12 @@
-//! # rwmstatus-lib
+//! # rwmstatus
 //!
-//! Library for status monitor displays.
+//! Library for status monitor displays.  It provides functions to obtain
+//! readouts about system status such as battery status or temperature.
 //!
-//! This is part of a larger project to port various
-//! [suckless.org](https://suckless.org/) programs to Rust, a programming
-//! language that sucks less.
+//! This is part of my [Rust Sucks
+//! Less](https://wojciechkozlowski.eu/rust-sucks-less/) project to port some
+//! of the [suckless.org](https://suckless.org/) programs and tools to Rust, a
+//! programming language that sucks less.
 
 // External crates
 extern crate chrono;

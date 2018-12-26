@@ -1,12 +1,13 @@
 //! # rwmstatus
 //!
-//! Status monitor bar for the dwm/rwm window manager (or any WM which uses
-//! WM_NAME of the X11 root window as its status bar).  It is a direct port of
-//! [dwmstatus](https://dwm.suckless.org/status_monitor/) to Rust.
+//! Status monitor bar binary for the dwm/rwm window manager (or any WM which
+//! uses WM_NAME of the X11 root window as its status bar).  It is a direct
+//! port of [dwmstatus](https://dwm.suckless.org/status_monitor/) to Rust.
 //!
-//! This is part of a larger project to port various
-//! [suckless.org](https://suckless.org/) programs to Rust, a programming
-//! language that sucks less.
+//! This is part of my [Rust Sucks
+//! Less](https://wojciechkozlowski.eu/rust-sucks-less/) project to port some
+//! of the [suckless.org](https://suckless.org/) programs and tools to Rust, a
+//! programming language that sucks less.
 
 // Lib import
 extern crate rwmstatus;
