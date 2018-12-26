@@ -205,12 +205,10 @@ impl RwmStatus {
 
     /// Return temperature reads from all monitors.
     pub fn get_temperatures(&self) -> String {
-        let mut temp_strs: Vec<String> = vec![];
-
-        for hwmon in self.hw_mons.iter() {
-            temp_strs.push(get_temp(&hwmon));
-        }
-
+        let temp_strs: Vec<String> = self.hw_mons
+            .iter()
+            .map(|hw_mon| get_temp(&hw_mon))
+            .collect();
         temp_strs.join("|")
     }
 
@@ -222,25 +220,19 @@ impl RwmStatus {
 
     /// Return battery status for all batteries.
     pub fn get_batteries(&self) -> String {
-        let mut batt_strs: Vec<String> = vec![];
-
-        for batt in self.batts.iter() {
-            batt_strs.push(get_batt(&batt));
-        }
-
+        let batt_strs: Vec<String> = self.batts.iter().map(|batt| get_batt(&batt)).collect();
         batt_strs.join("|")
     }
 
     /// Return times for all configured time zones.
     pub fn get_times(&self) -> String {
-        let mut tz_strs: Vec<String> = vec![];
-
-        for tz in self.tzs.iter() {
-            tz_strs.push(format!("{}:{}", tz.label, get_tz_time(&tz.name, "%H:%M")));
-        }
-
+        let mut tz_strs: Vec<String> = self.tzs
+            .iter()
+            .map(|tz| {
+                format!("{}:{}", tz.label, get_tz_time(&tz.name, "%H:%M"))
+            })
+            .collect();
         tz_strs.push(get_local_time("KW %W %a %d %b %H:%M %Z %Y"));
-
         tz_strs.join(" ")
     }
 }
