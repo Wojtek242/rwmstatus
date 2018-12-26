@@ -2,6 +2,15 @@
 name = "rwmstatus"
 version = "0.1.0"
 authors = ["Wojciech Kozlowski <wk@wojciechkozlowski.eu>"]
+license = "AGPL-3.0"
+keywords = ["wm", "status", "monitor"]
+readme = "README.md"
+repository = "https://github.com/Wojtek242/rwmstatus"
+homepage = "https://github.com/Wojtek242/rwmstatus"
+documentation = "https://docs.rs/rwmstatus"
+description = """
+Library for status monitor displays..
+"""
 
 links = "X11"
 build = "build.rs"
