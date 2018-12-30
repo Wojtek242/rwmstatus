@@ -17,6 +17,7 @@ extern crate libc;
 use std::io;
 
 // std type imports
+use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
@@ -35,20 +36,14 @@ fn read_file(base: &PathBuf, filename: &str) -> io::Result<String> {
 }
 
 /// Return temperature read from the provided monitor.
-pub fn get_temp(hwmon: &PathBuf) -> String {
-    match read_file(hwmon, "temp1_input") {
-        Ok(contents) => {
-            match contents.trim().parse::<f64>() {
-                Ok(val) => format!("{:02.0}°C", val / 1000.0),
-                Err(_) => format!(""),
-            }
-        }
-        Err(_) => format!(""),
-    }
+pub fn get_temp(hwmon: &PathBuf) -> Result<String, Box<Error>> {
+    let contents = read_file(hwmon, "temp1_input")?;
+    let val: f64 = contents.trim().parse()?;
+    Ok(format!("{:02.0}°C", val / 1000.0))
 }
 
 /// Return the three load average values.
-pub fn get_load_avgs() -> String {
+pub fn get_load_avgs() -> Result<String, Box<Error>> {
     let mut avgs: [libc::c_double; 3] = [0.0; 3];
 
     let rc: libc::c_int;
@@ -57,52 +52,34 @@ pub fn get_load_avgs() -> String {
     }
 
     if rc < 0 {
-        return format!("");
+        return Err(From::from(
+            format!("libc::getloadavg failed with rc {}", rc),
+        ));
     }
 
-    format!("{:.2} {:.2} {:.2}", avgs[0], avgs[1], avgs[2])
+    Ok(format!("{:.2} {:.2} {:.2}", avgs[0], avgs[1], avgs[2]))
 }
 
 /// Return battery status for the battery at the provided path.
-pub fn get_batt(batt: &PathBuf) -> String {
-    match read_file(&batt, "present") {
-        Ok(contents) => {
-            if !contents.starts_with('1') {
-                return format!("not present");
-            }
-        }
-        Err(_) => return format!(""),
-    };
+pub fn get_batt(batt: &PathBuf) -> Result<String, Box<Error>> {
+    let contents = read_file(&batt, "present")?;
+    if !contents.starts_with('1') {
+        return Err(From::from("not present"));
+    }
 
-    let co = match read_file(&batt, "charge_full_design") {
+    let contents = match read_file(&batt, "charge_full_design") {
         Ok(contents) => contents,
-        Err(_) => {
-            match read_file(&batt, "energy_full_design") {
-                Ok(contents) => contents,
-                Err(_) => return format!(""),
-            }
-        }
+        Err(_) => read_file(&batt, "energy_full_design")?,
     };
 
-    let desired_capacity: u64 = match co.trim().parse() {
-        Ok(val) => val,
-        Err(_) => return format!("invalid"),
-    };
+    let desired_capacity: u64 = contents.trim().parse()?;
 
-    let co = match read_file(&batt, "charge_now") {
+    let contents = match read_file(&batt, "charge_now") {
         Ok(contents) => contents,
-        Err(_) => {
-            match read_file(&batt, "energy_now") {
-                Ok(contents) => contents,
-                Err(_) => return format!(""),
-            }
-        }
+        Err(_) => read_file(&batt, "energy_now")?,
     };
 
-    let remaining_capacity: u64 = match co.trim().parse() {
-        Ok(val) => val,
-        Err(_) => return format!("invalid"),
-    };
+    let remaining_capacity: u64 = contents.trim().parse()?;
 
     let status: char = match read_file(&batt, "status") {
         Ok(contents) => {
@@ -116,22 +93,15 @@ pub fn get_batt(batt: &PathBuf) -> String {
         Err(_) => '?',
     };
 
-    format!(
-        "{:.0}%{}",
-        ((remaining_capacity as f64) / (desired_capacity as f64)) * 100.0,
-        status
-    )
+    let percentage = ((remaining_capacity as f64) / (desired_capacity as f64)) * 100.0;
+    Ok(format!("{:.0}%{}", percentage, status))
 }
 
 /// Get the time for the provided time zone.
-pub fn get_tz_time(tz_name: &str, fmt: &str) -> String {
-    match tz_name.parse::<chrono_tz::Tz>() {
-        Ok(tz) => {
-            let utc = Utc::now().naive_utc();
-            format!("{}", tz.from_utc_datetime(&utc).format(fmt))
-        }
-        Err(_) => return format!(""),
-    }
+pub fn get_tz_time(tz_name: &str, fmt: &str) -> Result<String, Box<Error>> {
+    let tz = tz_name.parse::<chrono_tz::Tz>()?;
+    let utc = Utc::now().naive_utc();
+    Ok(format!("{}", tz.from_utc_datetime(&utc).format(fmt)))
 }
 
 /// Get the local time.
@@ -204,24 +174,35 @@ impl RwmStatus {
     }
 
     /// Return temperature reads from all monitors.
-    pub fn get_temperatures(&self) -> String {
+    pub fn get_temperatures(&self) -> Option<String> {
+        if self.hw_mons.is_empty() {
+            return None;
+        }
+
         let temp_strs: Vec<String> = self.hw_mons
             .iter()
-            .map(|hw_mon| get_temp(&hw_mon))
+            .map(|hw_mon| get_temp(&hw_mon).unwrap_or(format!("")))
             .collect();
-        temp_strs.join("|")
+        Some(temp_strs.join("|"))
     }
 
     /// Return the three load average values.
     #[inline]
     pub fn get_load_avgs(&self) -> String {
-        get_load_avgs()
+        get_load_avgs().unwrap_or(format!(""))
     }
 
     /// Return battery status for all batteries.
-    pub fn get_batteries(&self) -> String {
-        let batt_strs: Vec<String> = self.batts.iter().map(|batt| get_batt(&batt)).collect();
-        batt_strs.join("|")
+    pub fn get_batteries(&self) -> Option<String> {
+        if self.batts.is_empty() {
+            return None;
+        }
+
+        let batt_strs: Vec<String> = self.batts
+            .iter()
+            .map(|batt| get_batt(&batt).unwrap_or(format!("")))
+            .collect();
+        Some(batt_strs.join("|"))
     }
 
     /// Return times for all configured time zones.
@@ -229,7 +210,11 @@ impl RwmStatus {
         let mut tz_strs: Vec<String> = self.tzs
             .iter()
             .map(|tz| {
-                format!("{}:{}", tz.label, get_tz_time(&tz.name, "%H:%M"))
+                format!(
+                    "{}:{}",
+                    tz.label,
+                    get_tz_time(&tz.name, "%H:%M").unwrap_or(format!(""))
+                )
             })
             .collect();
         tz_strs.push(get_local_time("KW %W %a %d %b %H:%M %Z %Y"));

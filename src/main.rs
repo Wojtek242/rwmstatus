@@ -49,25 +49,19 @@ fn main() {
     loop {
         let mut stats = vec![];
 
-        let temps = rwmstatus.get_temperatures();
-        if !temps.is_empty() {
+        if let Some(temps) = rwmstatus.get_temperatures() {
             stats.push(format!("T:{}", temps));
         }
 
         let avgs = rwmstatus.get_load_avgs();
-        if !avgs.is_empty() {
-            stats.push(format!("L:{}", avgs));
-        }
+        stats.push(format!("L:{}", avgs));
 
-        let batts = rwmstatus.get_batteries();
-        if !batts.is_empty() {
+        if let Some(batts) = rwmstatus.get_batteries() {
             stats.push(format!("B:{}", batts));
         }
 
         let times = rwmstatus.get_times();
-        if !times.is_empty() {
-            stats.push(times);
-        }
+        stats.push(times);
 
         let status = CString::new(stats.join(" ")).expect("Failed to create status CString.");
         unsafe {
