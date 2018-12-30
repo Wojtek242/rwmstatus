@@ -27,7 +27,6 @@ use std::path::PathBuf;
 use chrono::prelude::*;
 
 /// Read the contents of the file base/filename and return as a String.
-#[inline]
 fn read_file(base: &PathBuf, filename: &str) -> io::Result<String> {
     let mut file = File::open(base.join(filename))?;
     let mut contents = String::new();
