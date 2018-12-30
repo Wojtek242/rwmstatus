@@ -30,11 +30,7 @@ pub fn get_temp(hwmon: &PathBuf) -> Result<String> {
 pub fn get_load_avgs() -> Result<String> {
     let mut avgs: [libc::c_double; 3] = [0.0; 3];
 
-    let rc: libc::c_int;
-    unsafe {
-        rc = libc::getloadavg(&mut avgs[0] as *mut libc::c_double, 3);
-    }
-
+    let rc = unsafe { libc::getloadavg(&mut avgs[0] as *mut libc::c_double, 3) };
     if rc < 0 {
         return Err(StatusError::System(rc));
     }
