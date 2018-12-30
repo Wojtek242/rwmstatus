@@ -16,18 +16,11 @@ use rwmstatus::*;
 // External crates
 extern crate x11;
 
-// std module imports
-use std::process;
-use std::ptr;
-use std::thread;
-use std::time;
-
-// std type imports
+// std imports
 use std::ffi::CString;
 
 // x11 imports
-use x11::xlib::Display;
-use x11::xlib::{XDefaultRootWindow, XOpenDisplay, XStoreName, XSync};
+use x11::xlib::{Display, XDefaultRootWindow, XOpenDisplay, XStoreName, XSync};
 
 // Internal module imports
 mod config;
@@ -36,12 +29,12 @@ fn main() {
     let display: *mut Display;
 
     unsafe {
-        display = XOpenDisplay(ptr::null());
+        display = XOpenDisplay(std::ptr::null());
     }
 
-    if display == ptr::null_mut() {
+    if display.is_null() {
         eprintln!("rwmstatus: cannot open display.");
-        process::exit(1);
+        std::process::exit(1);
     }
 
     let rwmstatus = RwmStatus::new(config::HW_MON_PATH, config::BATT_PATH, &config::TZS[..]);
@@ -69,6 +62,6 @@ fn main() {
             XSync(display, false as i32);
         }
 
-        thread::sleep(time::Duration::from_secs(60));
+        std::thread::sleep(std::time::Duration::from_secs(60));
     }
 }

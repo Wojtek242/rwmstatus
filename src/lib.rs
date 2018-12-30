@@ -13,36 +13,21 @@ extern crate chrono;
 extern crate chrono_tz;
 extern crate libc;
 
-// std module imports
-use std::io;
+// std imports
+use std::fs::read_to_string;
+use std::path::{Path, PathBuf};
 
-// std type imports
-use std::error::Error;
-use std::io::prelude::*;
-use std::fs::File;
-use std::path::Path;
-use std::path::PathBuf;
-
-// Other external imports
+// External imports
 use chrono::prelude::*;
 
-/// Read the contents of the file base/filename and return as a String.
-fn read_file(base: &PathBuf, filename: &str) -> io::Result<String> {
-    let mut file = File::open(base.join(filename))?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
-}
-
 /// Return temperature read from the provided monitor.
-pub fn get_temp(hwmon: &PathBuf) -> Result<String, Box<Error>> {
-    let contents = read_file(hwmon, "temp1_input")?;
-    let val: f64 = contents.trim().parse()?;
-    Ok(format!("{:02.0}°C", val / 1000.0))
+pub fn get_temp(hwmon: &PathBuf) -> Result<String> {
+    let val: i64 = read_to_string(hwmon.join("temp1_input"))?.trim().parse()?;
+    Ok(format!("{:02}°C", val / 1000))
 }
 
 /// Return the three load average values.
-pub fn get_load_avgs() -> Result<String, Box<Error>> {
+pub fn get_load_avgs() -> Result<String> {
     let mut avgs: [libc::c_double; 3] = [0.0; 3];
 
     let rc: libc::c_int;
@@ -51,36 +36,29 @@ pub fn get_load_avgs() -> Result<String, Box<Error>> {
     }
 
     if rc < 0 {
-        return Err(From::from(
-            format!("libc::getloadavg failed with rc {}", rc),
-        ));
+        return Err(StatusError::System(rc));
     }
 
     Ok(format!("{:.2} {:.2} {:.2}", avgs[0], avgs[1], avgs[2]))
 }
 
 /// Return battery status for the battery at the provided path.
-pub fn get_batt(batt: &PathBuf) -> Result<String, Box<Error>> {
-    let contents = read_file(&batt, "present")?;
-    if !contents.starts_with('1') {
-        return Err(From::from("not present"));
+pub fn get_batt(batt: &PathBuf) -> Result<String> {
+    if !read_to_string(batt.join("present"))?.starts_with('1') {
+        return Err(StatusError::NotPresent(batt.to_str().unwrap().to_string()));
     }
 
-    let contents = match read_file(&batt, "charge_full_design") {
-        Ok(contents) => contents,
-        Err(_) => read_file(&batt, "energy_full_design")?,
-    };
+    let desired_capacity: u64 = read_to_string(batt.join("charge_full_design"))
+        .or_else(|_| read_to_string(batt.join("energy_full_design")))?
+        .trim()
+        .parse()?;
 
-    let desired_capacity: u64 = contents.trim().parse()?;
+    let remaining_capacity: u64 = read_to_string(batt.join("charge_now"))
+        .or_else(|_| read_to_string(batt.join("energy_now")))?
+        .trim()
+        .parse()?;
 
-    let contents = match read_file(&batt, "charge_now") {
-        Ok(contents) => contents,
-        Err(_) => read_file(&batt, "energy_now")?,
-    };
-
-    let remaining_capacity: u64 = contents.trim().parse()?;
-
-    let status: char = match read_file(&batt, "status") {
+    let status: char = match read_to_string(batt.join("status")) {
         Ok(contents) => {
             match &contents.trim()[..] {
                 "Full" => 'F',
@@ -97,8 +75,8 @@ pub fn get_batt(batt: &PathBuf) -> Result<String, Box<Error>> {
 }
 
 /// Get the time for the provided time zone.
-pub fn get_tz_time(tz_name: &str, fmt: &str) -> Result<String, Box<Error>> {
-    let tz = tz_name.parse::<chrono_tz::Tz>()?;
+pub fn get_tz_time(tz_name: &str, fmt: &str) -> Result<String> {
+    let tz: chrono_tz::Tz = tz_name.parse().map_err(StatusError::ParseTz)?;
     let utc = Utc::now().naive_utc();
     Ok(format!("{}", tz.from_utc_datetime(&utc).format(fmt)))
 }
@@ -152,13 +130,13 @@ impl RwmStatus {
         };
 
         let dir_filtered = dir.filter(|path_result| match path_result {
-            &Ok(ref path) => {
+            Ok(path) => {
                 match path.file_name().to_str() {
                     Some(entry) => entry.starts_with(prefix),
                     None => false,
                 }
             }
-            &Err(_) => false,
+            Err(_) => false,
         });
 
         let mut paths: Vec<PathBuf> = dir_filtered
@@ -180,7 +158,7 @@ impl RwmStatus {
 
         let temp_strs: Vec<String> = self.hw_mons
             .iter()
-            .map(|hw_mon| get_temp(&hw_mon).unwrap_or(format!("")))
+            .map(|hw_mon| get_temp(&hw_mon).unwrap_or("".into()))
             .collect();
         Some(temp_strs.join("|"))
     }
@@ -199,7 +177,7 @@ impl RwmStatus {
 
         let batt_strs: Vec<String> = self.batts
             .iter()
-            .map(|batt| get_batt(&batt).unwrap_or(format!("")))
+            .map(|batt| get_batt(&batt).unwrap_or("".into()))
             .collect();
         Some(batt_strs.join("|"))
     }
@@ -212,11 +190,60 @@ impl RwmStatus {
                 format!(
                     "{}:{}",
                     tz.label,
-                    get_tz_time(&tz.name, "%H:%M").unwrap_or(format!(""))
+                    get_tz_time(&tz.name, "%H:%M").unwrap_or("".into())
                 )
             })
             .collect();
         tz_strs.push(get_local_time("KW %W %a %d %b %H:%M %Z %Y"));
         tz_strs.join(" ")
+    }
+}
+
+/// Internal `Result` type.
+type Result<T> = std::result::Result<T, StatusError>;
+
+/// Error type for `rwmstatus` functions.
+#[derive(Debug)]
+pub enum StatusError {
+    Io(std::io::Error),
+    ParseNum(std::num::ParseIntError),
+    ParseTz(String),
+    NotPresent(String),
+    System(i32),
+}
+
+impl std::fmt::Display for StatusError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            StatusError::Io(ioe) => ioe.fmt(f),
+            StatusError::ParseNum(pie) => pie.fmt(f),
+            StatusError::ParseTz(s) => write!(f, "{}", s),
+            StatusError::NotPresent(s) => write!(f, "{} not present", s),
+            StatusError::System(i) => write!(f, "System call returned {}", i),
+        }
+    }
+}
+
+impl std::error::Error for StatusError {
+    fn description(&self) -> &str {
+        match self {
+            StatusError::Io(ioe) => ioe.description(),
+            StatusError::ParseNum(pie) => pie.description(),
+            StatusError::ParseTz(_) => "Invalid timezone",
+            StatusError::NotPresent(_) => "Device not present",
+            StatusError::System(_) => "System call returned error",
+        }
+    }
+}
+
+impl From<std::io::Error> for StatusError {
+    fn from(err: std::io::Error) -> Self {
+        StatusError::Io(err)
+    }
+}
+
+impl From<std::num::ParseIntError> for StatusError {
+    fn from(err: std::num::ParseIntError) -> Self {
+        StatusError::ParseNum(err)
     }
 }
