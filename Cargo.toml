@@ -1,9 +1,9 @@
 [package]
 name = "rwmstatus"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Wojciech Kozlowski <wk@wojciechkozlowski.eu>"]
 license = "AGPL-3.0"
-keywords = ["wm", "status", "monitor"]
+keywords = ["monitor", "status", "window", "wm", "x11"]
 readme = "README.md"
 repository = "https://github.com/Wojtek242/rwmstatus"
 homepage = "https://github.com/Wojtek242/rwmstatus"

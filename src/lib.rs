@@ -44,7 +44,7 @@ pub fn get_batt(batt: &PathBuf) -> Result<String, StatusError> {
         return Err(StatusError::NotPresent(batt.to_str().unwrap().to_string()));
     }
 
-    let desired_capacity: u64 = read_to_string(batt.join("charge_full_design"))
+    let design_capacity: u64 = read_to_string(batt.join("charge_full_design"))
         .or_else(|_| read_to_string(batt.join("energy_full_design")))?
         .trim()
         .parse()?;
@@ -66,11 +66,11 @@ pub fn get_batt(batt: &PathBuf) -> Result<String, StatusError> {
         Err(_) => '?',
     };
 
-    let percentage = ((remaining_capacity as f64) / (desired_capacity as f64)) * 100.0;
+    let percentage = ((remaining_capacity as f64) / (design_capacity as f64)) * 100.0;
     Ok(format!("{:.0}%{}", percentage, status))
 }
 
-/// Get the time for the provided time zone.
+/// Get the time for the provided timezone in the provided format.
 pub fn get_tz_time(tz_name: &str, fmt: &str) -> Result<String, StatusError> {
     let tz: chrono_tz::Tz = tz_name.parse().map_err(StatusError::ParseTz)?;
     let utc = Utc::now().naive_utc();
