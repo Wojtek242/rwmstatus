@@ -21,13 +21,13 @@ use std::path::{Path, PathBuf};
 use chrono::prelude::*;
 
 /// Return temperature read from the provided monitor.
-pub fn get_temp(hwmon: &PathBuf) -> Result<String> {
+pub fn get_temp(hwmon: &PathBuf) -> Result<String, StatusError> {
     let val: i64 = read_to_string(hwmon.join("temp1_input"))?.trim().parse()?;
     Ok(format!("{:02}°C", val / 1000))
 }
 
 /// Return the three load average values.
-pub fn get_load_avgs() -> Result<String> {
+pub fn get_load_avgs() -> Result<String, StatusError> {
     let mut avgs: [libc::c_double; 3] = [0.0; 3];
 
     let rc = unsafe { libc::getloadavg(&mut avgs[0] as *mut libc::c_double, 3) };
@@ -39,7 +39,7 @@ pub fn get_load_avgs() -> Result<String> {
 }
 
 /// Return battery status for the battery at the provided path.
-pub fn get_batt(batt: &PathBuf) -> Result<String> {
+pub fn get_batt(batt: &PathBuf) -> Result<String, StatusError> {
     if !read_to_string(batt.join("present"))?.starts_with('1') {
         return Err(StatusError::NotPresent(batt.to_str().unwrap().to_string()));
     }
@@ -71,7 +71,7 @@ pub fn get_batt(batt: &PathBuf) -> Result<String> {
 }
 
 /// Get the time for the provided time zone.
-pub fn get_tz_time(tz_name: &str, fmt: &str) -> Result<String> {
+pub fn get_tz_time(tz_name: &str, fmt: &str) -> Result<String, StatusError> {
     let tz: chrono_tz::Tz = tz_name.parse().map_err(StatusError::ParseTz)?;
     let utc = Utc::now().naive_utc();
     Ok(format!("{}", tz.from_utc_datetime(&utc).format(fmt)))
@@ -194,9 +194,6 @@ impl RwmStatus {
         tz_strs.join(" ")
     }
 }
-
-/// Internal `Result` type.
-type Result<T> = std::result::Result<T, StatusError>;
 
 /// Error type for `rwmstatus` functions.
 #[derive(Debug)]
