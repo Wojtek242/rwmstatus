@@ -39,9 +39,8 @@ fn main() {
 
     let rwmstatus = RwmStatus::new(config::HW_MON_PATH, config::BATT_PATH, &config::TZS[..]);
 
+    let mut stats = vec![];
     loop {
-        let mut stats = vec![];
-
         if let Some(temps) = rwmstatus.get_temperatures() {
             stats.push(format!("T:{}", temps));
         }
@@ -63,5 +62,7 @@ fn main() {
         }
 
         std::thread::sleep(std::time::Duration::from_secs(60));
+
+        stats.clear();
     }
 }

@@ -125,20 +125,16 @@ impl RwmStatus {
             Err(_) => return vec![],
         };
 
-        let dir_filtered = dir.filter(|path_result| match path_result {
-            Ok(path) => {
-                match path.file_name().to_str() {
-                    Some(entry) => entry.starts_with(prefix),
-                    None => false,
-                }
-            }
-            Err(_) => false,
+        let dir_contents = dir.filter_map(|path_result| {
+            path_result.ok().and_then(|path| Some(path.path()))
         });
 
-        let mut paths: Vec<PathBuf> = dir_filtered
-            .map(|path_result| match path_result {
-                Ok(path) => path.path(),
-                Err(_) => panic!("Unexpected file path"),
+        let mut paths: Vec<PathBuf> = dir_contents
+            .filter(|path| {
+                path.file_name()
+                    .and_then(|os_str| os_str.to_str())
+                    .filter(|entry| entry.starts_with(prefix))
+                    .is_some()
             })
             .collect();
 
@@ -154,7 +150,7 @@ impl RwmStatus {
 
         let temp_strs: Vec<String> = self.hw_mons
             .iter()
-            .map(|hw_mon| get_temp(&hw_mon).unwrap_or("".into()))
+            .map(|hw_mon| get_temp(&hw_mon).unwrap_or_else(|_| "".into()))
             .collect();
         Some(temp_strs.join("|"))
     }
@@ -162,7 +158,7 @@ impl RwmStatus {
     /// Return the three load average values.
     #[inline]
     pub fn get_load_avgs(&self) -> String {
-        get_load_avgs().unwrap_or(format!(""))
+        get_load_avgs().unwrap_or_else(|_| "".into())
     }
 
     /// Return battery status for all batteries.
@@ -173,7 +169,7 @@ impl RwmStatus {
 
         let batt_strs: Vec<String> = self.batts
             .iter()
-            .map(|batt| get_batt(&batt).unwrap_or("".into()))
+            .map(|batt| get_batt(&batt).unwrap_or_else(|_| "".into()))
             .collect();
         Some(batt_strs.join("|"))
     }
@@ -186,7 +182,7 @@ impl RwmStatus {
                 format!(
                     "{}:{}",
                     tz.label,
-                    get_tz_time(&tz.name, "%H:%M").unwrap_or("".into())
+                    get_tz_time(&tz.name, "%H:%M").unwrap_or_else(|_| "".into())
                 )
             })
             .collect();
