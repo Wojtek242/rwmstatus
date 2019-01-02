@@ -37,7 +37,7 @@ fn main() {
         std::process::exit(1);
     }
 
-    let rwmstatus = RwmStatus::new(config::HW_MON_PATH, config::BATT_PATH, &config::TZS[..]);
+    let rwmstatus = RwmStatus::new(&config::TZS[..]);
 
     let mut stats = vec![];
     loop {

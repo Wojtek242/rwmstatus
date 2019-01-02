@@ -103,10 +103,10 @@ struct Tz {
 impl RwmStatus {
     /// Build a new RwmStatus object.  This function collects all the monitor
     /// and battery paths for later use.
-    pub fn new(hw_mon_path: &str, batt_path: &str, tzs: &[(char, &str)]) -> RwmStatus {
+    pub fn new(tzs: &[(char, &str)]) -> RwmStatus {
         RwmStatus {
-            hw_mons: RwmStatus::get_paths(hw_mon_path, "hwmon"),
-            batts: RwmStatus::get_paths(batt_path, "BAT"),
+            hw_mons: RwmStatus::get_paths("/sys/devices/virtual/hwmon", "hwmon"),
+            batts: RwmStatus::get_paths("/sys/class/power_supply", "BAT"),
             tzs: tzs.iter()
                 .map(|tz| {
                     Tz {
