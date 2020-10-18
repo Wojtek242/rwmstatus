@@ -12,7 +12,7 @@ clean:
 	@echo cleaning
 	@cargo clean
 
-install: all
+install:
 	@echo installing executable file to ${DESTDIR}${PREFIX}/bin
 	@mkdir -p ${DESTDIR}${PREFIX}/bin
 	@cp -f target/release/${NAME} ${DESTDIR}${PREFIX}/bin
